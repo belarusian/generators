@@ -1,0 +1,1 @@
+"""Generated generator: trinity -- Orchestrator that applies artifacts to produce structured facts. Takes a question or hypothesis, discovers available Python programs/generators in the workspace, plans artifact applications by inspecting their signatures, executes them with inferred arguments, and collects results as structured facts that answer the question.."""
