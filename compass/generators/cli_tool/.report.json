@@ -1,0 +1,8 @@
+{
+  "version": 0,
+  "rounds": 1,
+  "ouroboros_fixes": 0,
+  "outcome": "success",
+  "validators": [],
+  "user_prompt": "Build a generator for Python CLI tools that produces argparse-based command-line applications with subcommands, help text, and proper error handling. The generated CLI should support --verbose and --version flags."
+}

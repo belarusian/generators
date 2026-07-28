@@ -1,0 +1,3 @@
+"""
+Compass Core - Shared infrastructure.
+"""

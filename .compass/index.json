@@ -1,0 +1,14 @@
+{
+  "_comment": "Codebase index configuration - edit to customize what the Oracle sees",
+  "exclude": [
+    "tests/",
+    "scripts/"
+  ],
+  "include_classes": [],
+  "exclude_classes": [],
+  "include_functions": [],
+  "exclude_functions": [],
+  "priority_classes": [],
+  "priority_functions": [],
+  "max_context_chars": 12000
+}

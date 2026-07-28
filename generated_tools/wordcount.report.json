@@ -1,0 +1,8 @@
+{
+  "version": 0,
+  "rounds": 1,
+  "ouroboros_fixes": 0,
+  "outcome": "success",
+  "validators": [],
+  "user_prompt": "Create a CLI tool called 'wordcount' that reads a text file and prints the number of lines, words, and characters. It should accept one or more file paths as positional arguments, support a --verbose flag that prints per-file breakdowns, and a --json flag that outputs results as JSON instead of plain text. Include proper error handling for missing files."
+}

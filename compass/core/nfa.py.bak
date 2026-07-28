@@ -1,0 +1,137 @@
+from __future__ import annotations
+from typing import TypeVar, Generic, Callable, Dict, Tuple, Optional, Any
+from dataclasses import dataclass, replace
+from enum import Enum
+
+S = TypeVar('S')  # State type
+C = TypeVar('C')  # Context type
+R = TypeVar('R')  # Result type
+
+# === NFA Core Types ===
+
+class NFAResult(Generic[R]):
+    """Result of running an NFA."""
+    success: bool
+    value: R
+    history: Tuple['NFAResult', ...] = ()
+
+    def __init__(self, success: bool, value: R, history: Tuple['NFAResult', ...] = ()):
+        self.success = success
+        self.value = value
+        self.history = history
+
+    def __repr__(self):
+        return f"NFAResult(success={self.success}, value={self.value})"
+
+
+class TransitionFn(Generic[C, S]):
+    """A transition function: takes context, returns (next_state, new_context)."""
+    fn: Callable[[C], Tuple[S, C]]
+
+    def __init__(self, fn: Callable[[C], Tuple[S, C]]):
+        self.fn = fn
+
+    def __call__(self, context: C) -> Tuple[S, C]:
+        return self.fn(context)
+
+
+class NFARunner(Generic[S, C]):
+    """A generic Nested Finite Automaton runner.
+
+    Uses a run() loop with state transitions defined by a dictionary of
+    TransitionFn callables. Supports fractal composition via compose_nfas().
+    """
+    
+    def __init__(self, 
+                 states: Dict[S, TransitionFn[C, S]],
+                 initial_state: S,
+                 terminal_states: Optional[set[S]] = None):
+        self.states = states
+        self.initial_state = initial_state
+        self.terminal_states = terminal_states or set()
+
+    def run(self, initial_context: C) -> NFAResult[C]:
+        """Run the NFA from initial state until terminal state or halt.
+
+        Returns:
+            NFAResult indicating success/failure and final context.
+        """
+        current_state = self.initial_state
+        context = initial_context
+
+        while current_state not in self.terminal_states:
+            if current_state not in self.states:
+                # No transition defined - halt
+                return NFAResult(False, context, ())
+
+            transition = self.states[current_state]
+            try:
+                next_state, new_context = transition(context)
+                context = new_context
+                current_state = next_state
+            except Exception:
+                # Exception during transition - halt
+                return NFAResult(False, context, ())
+
+        # Reached terminal state
+        return NFAResult(True, context, ())
+
+    def run_from(self, state: S, context: C) -> NFAResult[C]:
+        """Run the NFA from a given state."""
+        original_initial = self.initial_state
+        self.initial_state = state
+        try:
+            return self.run(context)
+        finally:
+            self.initial_state = original_initial
+
+
+# === Composition Functions ===
+
+def compose_nfas(
+    outer_transitions: Dict[S, TransitionFn[C, S]],
+    inner_runner: NFARunner,
+    invoke_state: S,
+    extract_inner_context: Callable[[C], Any],
+    merge_inner_result: Callable[[C, NFAResult], C],
+    next_state_on_success: S,
+    next_state_on_failure: S,
+) -> Dict[S, TransitionFn[C, S]]:
+    """
+    Compose two NFAs by embedding the inner NFA as a transition in the outer.
+
+    This enables fractal composition: the outer NFA can invoke the inner NFA
+    at a specific state, and the inner NFA runs to completion before the
+    outer NFA continues.
+
+    Args:
+        outer_transitions: The outer NFA's transition dict (will be modified)
+        inner_runner: The inner NFA runner to invoke
+        invoke_state: Which outer state triggers the inner NFA
+        extract_inner_context: Function to extract inner context from outer
+        merge_inner_result: Function to merge inner result back into outer context
+        next_state_on_success: Outer state to transition to if inner succeeds
+        next_state_on_failure: Outer state to transition to if inner fails
+
+    Returns:
+        Modified transitions dict with the composed transition
+    """
+    def composed_transition(ctx: C) -> Tuple[S, C]:
+        # Extract context for inner NFA
+        inner_ctx = extract_inner_context(ctx)
+
+        # Run inner NFA to completion
+        result = inner_runner.run(inner_ctx)
+
+        # Merge result back into outer context
+        ctx = merge_inner_result(ctx, result)
+
+        # Determine next state based on inner result
+        if result.success:
+            return next_state_on_success, ctx
+        else:
+            return next_state_on_failure, ctx
+
+    # Add composed transition to outer
+    outer_transitions[invoke_state] = TransitionFn(composed_transition)
+    return outer_transitions

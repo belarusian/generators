@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+prompts/
+trinity_output/
+trinity_output_2/
+*.egg-info/

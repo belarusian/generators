@@ -1,0 +1,10 @@
+from pathlib import Path
+
+workspace = Path(str(workspace))
+artifacts_dir = workspace / "artifacts"
+artifacts_dir.mkdir(exist_ok=True)
+
+commit_file = artifacts_dir / "commit_message.txt"
+commit_file.write_text(commit_summary)
+
+result = str(commit_file)

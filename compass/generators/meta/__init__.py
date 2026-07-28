@@ -1,0 +1,1 @@
+"""Generated generator: meta -- Meta-generator -- generates generator modules. Fixes ctx passthrough in ouroboros_meta so domain context (e.g. available_packages, feedback history) is available to the fix model for richer surgical patches.."""

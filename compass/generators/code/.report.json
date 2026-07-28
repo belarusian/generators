@@ -1,0 +1,8 @@
+{
+  "version": 0,
+  "rounds": 1,
+  "ouroboros_fixes": 0,
+  "outcome": "success",
+  "validators": [],
+  "user_prompt": "generate.py is missing refinement support. Add refine: tuple[str, str] | None = None to run(). When set, use refine_context to load the existing artifact onto the generation context -- load_code_artifact is already imported, serialize files as \"# {f.path}\\n{f.content}\" joined by double newlines. The prompt path stays ctx.with_prompt(prompt). Update the guard to accept refine as an alternative to prompt. In main(), add --refine and --claim flags, pass refine=(args.refine, args.claim or \"Re-validate this artifact\") if args.refine else None. Keep everything else exactly the same."
+}

@@ -1,0 +1,8 @@
+{
+  "version": 0,
+  "rounds": 2,
+  "ouroboros_fixes": 0,
+  "outcome": "success",
+  "validators": [],
+  "user_prompt": "I see that in compass/generators/meta/generate.py we have \ndef _make_fix(model_id: str, ask_fn=None):\n    \"\"\"G'_meta: (spec, error, ctx) -> spec | None\n\n    NARROW ouroboros: model returns a ModulePatch with surgical edits.\n    Never rewrites the whole module. If the patch cannot be applied\n    or the model fails, returns None (outer loop retries from scratch).\n    \"\"\"\n    def fix(spec: GeneratorModuleSpec, error: str, ctx: GenerationContext):\n        return ouroboros_meta(spec, error, ctx, model_id, ask_fn)\n    return fix\n\n\nand ouroboros_meta is actually imported (as opposed to copied) and the problem (maybe?) is : \n\ndef ouroboros_meta(\n    spec: GeneratorModuleSpec,\n    error: str,\n    ctx: GenerationContext,\n    model_id: str = \"\",\n    ask_fn: AskFn | None = None,\n) -> GeneratorModuleSpec | None:\n\nctx is not used // is it because we use what we need \n// from spec? or is it a bug? "
+}

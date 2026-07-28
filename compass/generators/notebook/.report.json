@@ -1,0 +1,8 @@
+{
+  "version": 0,
+  "rounds": 2,
+  "ouroboros_fixes": 0,
+  "outcome": "success",
+  "validators": [],
+  "user_prompt": "Add patch-based ouroboros to the notebook generator. The current ouroboros returns the entire NotebookSpec on every fix. Instead, use a CellPatch approach analogous to ModulePatch/FilePatch/FileEdit: the model returns only the changed cells with their index, either as full cell replacement or targeted edits within a cell. Add CellEdit, CellPatch, NotebookPatch types to _types.py, validate_notebook_patch and apply_notebook_patch functions, and wire them into ouroboros_notebook in _runtime.py."
+}
