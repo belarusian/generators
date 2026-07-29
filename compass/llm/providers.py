@@ -382,11 +382,17 @@ class OllamaProvider(Provider):
                 truncated = " [TRUNCATED]" if done_reason == "length" else ""
                 print(f"[META] tokens={eval_count} done={done_reason}{truncated}")
 
+            # Extract token usage for Ollama (eval_count is output tokens, input is estimated from messages)
+            input_tokens = 0
+            output_tokens = eval_count
+
             return ProviderResponse(
                 text=content.strip(),
                 thinking=thinking,
                 done_reason=done_reason,
                 eval_count=eval_count,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
             )
 
         except requests.exceptions.ConnectionError:
@@ -703,6 +709,8 @@ class LlamaCppProvider(Provider):
             finish_reason = choice.get("finish_reason", "")
             usage = result.get("usage", {})
             eval_count = usage.get("completion_tokens", 0)
+            input_tokens = usage.get("prompt_tokens", 0)
+            output_tokens = eval_count
 
             if os.getenv("DEBUG"):
                 truncated = " [TRUNCATED]" if finish_reason == "length" else ""
@@ -712,6 +720,8 @@ class LlamaCppProvider(Provider):
                 text=content.strip(),
                 done_reason=finish_reason,
                 eval_count=eval_count,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
             )
 
         except requests.exceptions.ConnectionError:
