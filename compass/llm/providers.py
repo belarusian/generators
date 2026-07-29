@@ -38,6 +38,11 @@ class ProviderResponse:
     thinking: str = ""
     done_reason: str = ""  # "stop", "length", etc.
     eval_count: int = 0
+    # Token usage metering (normalized across providers)
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
 
 
 class Provider(ABC):
@@ -136,6 +141,20 @@ class AnthropicProvider(Provider):
                 else:
                     api_messages.append(msg)
 
+            # Enable prompt caching via two ephemeral breakpoints per request:
+            # - last system block
+            # - final message's last block
+            # This allows append-only history to re-read prior turns' cache
+            cache_tools = []
+            if system_prompt:
+                cache_tools.append({"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}})
+            if api_messages:
+                last_msg = api_messages[-1]
+                if "content" in last_msg:
+                    last_msg["content"] = [
+                        {"type": "text", "text": last_msg["content"], "cache_control": {"type": "ephemeral"}}
+                    ]
+
             # Clamp to model's maximum output tokens
             model_max = self.MAX_OUTPUT.get(self.model, 16384)
             effective_max = min(max_tokens, model_max) if max_tokens > 0 else model_max
@@ -146,7 +165,7 @@ class AnthropicProvider(Provider):
                 "messages": api_messages,
             }
             if system_prompt:
-                kwargs["system"] = system_prompt
+                kwargs["system"] = cache_tools[0] if cache_tools else system_prompt
             if temperature is not None:
                 kwargs["temperature"] = temperature
 
@@ -156,9 +175,24 @@ class AnthropicProvider(Provider):
                 for text in stream.text_stream:
                     chunks.append(text)
             result = "".join(chunks).strip()
+
+            final_msg = stream.get_final_message()
+            stop_reason = final_msg.stop_reason or "stop"
+
+            # Extract token usage from final message
+            usage = getattr(final_msg, "usage", None)
+            input_tokens = getattr(usage, "input_tokens", 0) if usage else 0
+            output_tokens = getattr(usage, "output_tokens", 0) if usage else 0
+            cache_read_tokens = getattr(usage, "cache_read_input_tokens", 0) if usage else 0
+            cache_write_tokens = getattr(usage, "cache_creation_input_tokens", 0) if usage else 0
+
             return ProviderResponse(
                 text=result,
-                done_reason=stream.get_final_message().stop_reason or "stop",
+                done_reason=stop_reason,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cache_read_tokens=cache_read_tokens,
+                cache_write_tokens=cache_write_tokens,
             )
         except Exception as e:
             logger.error("Anthropic API error: %s", e)
