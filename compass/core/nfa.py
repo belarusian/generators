@@ -11,6 +11,10 @@ fractal composition where each level has bounded context.
 Evolution: Neo added nfa_types.py (State, Transition, NFAConfig, CriticResult)
 and nfa_evolution.py (self-rewriting kernel). The types are re-exported here
 so the evolution infrastructure composes with the runner.
+
+Bash-Transport: Agents are forced to produce proper content by looping until
+the model invokes the proper command via bash transport. The NFA detects
+bash-transport terminal states and transitions accordingly.
 """
 
 import time
@@ -29,6 +33,9 @@ from compass.core.nfa_types import (  # noqa: F401
     State, Transition, NFAConfig, CriticResult, NestedFiniteAutomaton,
 )
 
+# Re-export bash-transport terminal state detection
+from compass.core import bash_transport  # noqa: F401
+
 
 @dataclass
 class NFAResult(Generic[C]):
@@ -42,6 +49,7 @@ class NFAResult(Generic[C]):
         error: Error message if failed
         iterations: Number of transitions executed
         history: Tuple of prior NFAResults (for evolution traceability)
+        bash_command: Bash command if bash-transport terminal state was detected
     """
     success: bool
     final_state: Any
@@ -49,6 +57,7 @@ class NFAResult(Generic[C]):
     error: Optional[str] = None
     iterations: int = 0
     history: Tuple['NFAResult', ...] = ()
+    bash_command: Optional[str] = None
 
     @property
     def value(self):
@@ -86,6 +95,8 @@ class NFARunner(Generic[S, C]):
     Supports both the original call convention (transitions=, success_states=,
     max_iterations=, on_transition=) and Neo's simplified form (states=,
     terminal_states= only).
+
+    Bash-Transport Support: Detects when model invokes bash command as terminal state.
     """
 
     def __init__(
@@ -98,6 +109,9 @@ class NFARunner(Generic[S, C]):
         on_transition: Optional[Callable] = None,
         # Neo's simplified constructor
         states: Dict[S, TransitionFn[C, S]] = None,
+        # Bash-transport support
+        enable_bash_transport: bool = False,
+        bash_transport_detector: Optional[Any] = None,
     ):
         # Accept either 'transitions' or 'states' (Neo's name)
         self.transitions = transitions or states or {}
@@ -106,6 +120,8 @@ class NFARunner(Generic[S, C]):
         self.success_states = success_states or self.terminal_states
         self.max_iterations = max_iterations
         self.on_transition = on_transition
+        self.enable_bash_transport = enable_bash_transport
+        self.bash_transport_detector = bash_transport_detector or bash_transport.BashTransportTerminalDetector()
 
         if success_states and not success_states.issubset(self.terminal_states):
             invalid = success_states - self.terminal_states
@@ -129,6 +145,26 @@ class NFARunner(Generic[S, C]):
                     error=f"Max iterations ({self.max_iterations}) exceeded at state {state}",
                     iterations=iterations,
                 )
+
+            # Check for bash-transport terminal state
+            if self.enable_bash_transport:
+                content = None
+                if hasattr(ctx, 'content'):
+                    content = getattr(ctx, 'content')
+                elif isinstance(ctx, dict):
+                    content = ctx.get('content')
+                
+                if content:
+                    bash_cmd = self.bash_transport_detector.detect(str(content))
+                    if bash_cmd:
+                        # Bash-transport terminal state detected
+                        return NFAResult(
+                            success=True,
+                            final_state=state,
+                            context=ctx,
+                            iterations=iterations,
+                            bash_command=bash_cmd,
+                        )
 
             transition_fn = self.transitions.get(state)
             if not transition_fn:
